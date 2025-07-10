@@ -18,3 +18,22 @@ async function fetchMedia(endpoint) {
         return []; 
     }
 }
+
+
+// Function to create a movie/TV show card HTML
+function createMediaCard(media) {
+    const posterPath = media.poster_path ? `${IMAGE_BASE_URL}${media.poster_path}` : 'https://via.placeholder.com/200x300?text=No+Image';
+    const title = media.title || media.name; // 'title' for movies, 'name' for TV shows
+    const voteAverage = media.vote_average ? media.vote_average.toFixed(1) : 'N/A'; // Shows the rating like 8.5 / 10 If no rating, it shows 'N/A'.
+    const mediaType = media.media_type || (window.location.pathname.includes('series.html') || window.location.pathname.includes('tvshows.html') ? 'tv' : 'movie');
+
+    return `
+        <div class="bg-gray-800 rounded-lg shadow-md overflow-hidden transform hover:scale-105 transition-transform duration-300 cursor-pointer" data-id="${media.id}" data-type="${mediaType}">
+            <img src="${posterPath}" alt="${title}" class="w-full h-72 object-cover">
+            <div class="p-4">
+                <h3 class="text-lg font-semibold truncate hover:text-red-500">${title}</h3>
+                <p class="text-sm text-gray-400 mt-2">Rating: ${voteAverage} / 10</p>
+            </div>
+        </div>
+    `;
+}
