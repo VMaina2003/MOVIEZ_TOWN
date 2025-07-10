@@ -37,3 +37,15 @@ function createMediaCard(media) {
         </div>
     `;
 }
+
+// This function renders a list of movie/TV show cards inside a specific container on your page.
+function displayMedia(mediaItems, containerId) {
+    const container = document.getElementById(containerId);
+    if (container) {
+        container.innerHTML = ''; // removes previous content (so it doesn't stack new results on top).
+        // Loops through each movie or TV show object in the list Calls createMediaCard() to get the HTML Appends it to the container's innerHTML
+        mediaItems.forEach(item => {
+            container.innerHTML += createMediaCard(item);
+        });
+    }
+}
