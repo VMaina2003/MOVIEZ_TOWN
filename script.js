@@ -1,33 +1,63 @@
-const API_KEY = ""; 
+const API_KEY = "";
 const BASE_URL = "https://api.themoviedb.org/3";
 const IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500";
-const ORIGINAL_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/original"; 
+const ORIGINAL_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/original";
 
 // Function to fetch data from TMDb
 async function fetchMedia(endpoint) {
-    try {
-        const response = await fetch( `${BASE_URL}${endpoint}?api_key=${API_KEY}`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        return data.results || data; 
-    } 
-    catch (error) {
-        console.error("Error fetching data:", error);
-        return []; 
+  try {
+    const response = await fetch(`${BASE_URL}${endpoint}?api_key=${API_KEY}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
+    const data = await response.json();
+    return data.results || data;
+  } catch (error) {
+    console.error("Error fetching data:", error);
+    return [];
+  }
 }
 
+// --- Highlight Active Navigation Link
+function highlightActiveNav() {
+  const navLinks = document.querySelectorAll("nav ul li a");
+  const currentPath = window.location.pathname.split("/").pop();
+
+  navLinks.forEach((link) => {
+    // Remove active classes from all links first
+    link.classList.remove("text-red-500", "border-b-2", "border-red-500");
+    link.classList.add("hover:text-red-500"); // Ensure hover effect remains
+
+    const linkPath = link.href.split("/").pop();
+
+    // Check for active link (handles root URL accessing index.html)
+    if (
+      currentPath === linkPath ||
+      (currentPath === "" && linkPath === "index.html")
+    ) {
+      link.classList.add("text-red-500", "border-b-2", "border-red-500");
+      link.classList.remove("hover:text-red-500"); // Remove hover for the active one
+    }
+  });
+}
 
 // Function to create a movie/TV show card HTML
 function createMediaCard(media) {
-    const posterPath = media.poster_path ? `${IMAGE_BASE_URL}${media.poster_path}` : 'https://via.placeholder.com/200x300?text=No+Image';
-    const title = media.title || media.name; // 'title' for movies, 'name' for TV shows
-    const voteAverage = media.vote_average ? media.vote_average.toFixed(1) : 'N/A'; // Shows the rating like 8.5 / 10 If no rating, it shows 'N/A'.
-    const mediaType = media.media_type || (window.location.pathname.includes('series.html') || window.location.pathname.includes('tvshows.html') ? 'tv' : 'movie');
+  const posterPath = media.poster_path
+    ? `${IMAGE_BASE_URL}${media.poster_path}`
+    : "https://via.placeholder.com/200x300?text=No+Image";
+  const title = media.title || media.name; // 'title' for movies, 'name' for TV shows
+  const voteAverage = media.vote_average
+    ? media.vote_average.toFixed(1)
+    : "N/A"; // Shows the rating like 8.5 / 10 If no rating, it shows 'N/A'.
+  const mediaType =
+    media.media_type ||
+    (window.location.pathname.includes("series.html") ||
+    window.location.pathname.includes("tvshows.html")
+      ? "tv"
+      : "movie");
 
-    return `
+  return `
         <div class="bg-gray-800 rounded-lg shadow-md overflow-hidden transform hover:scale-105 transition-transform duration-300 cursor-pointer" data-id="${media.id}" data-type="${mediaType}">
             <img src="${posterPath}" alt="${title}" class="w-full h-72 object-cover">
             <div class="p-4">
@@ -40,12 +70,14 @@ function createMediaCard(media) {
 
 // This function renders a list of movie/TV show cards inside a specific container on your page.
 function displayMedia(mediaItems, containerId) {
-    const container = document.getElementById(containerId);
-    if (container) {
-        container.innerHTML = ''; // removes previous content (so it doesn't stack new results on top).
-        // Loops through each movie or TV show object in the list Calls createMediaCard() to get the HTML Appends it to the container's innerHTML
-        mediaItems.forEach(item => {
-            container.innerHTML += createMediaCard(item);
-        });
-    }
+  const container = document.getElementById(containerId);
+  if (container) {
+    container.innerHTML = ""; // removes previous content (so it doesn't stack new results on top).
+    // Loops through each movie or TV show object in the list Calls createMediaCard() to get the HTML Appends it to the container's innerHTML
+    mediaItems.forEach((item) => {
+      container.innerHTML += createMediaCard(item);
+    });
+  }
 }
+
+// Main function to load content
