@@ -355,13 +355,46 @@ async function showMediaDetails(id, type);{
                 });
             });
         }
-        
+        //7.) Attach event listeners for close button and add comment button
+        document.getElementById('close-detail-btn').addEventListener('click', () => {
+            detailSection.classList.add('hidden');
+            mainContent.classList.remove('hidden');
+            const searchResultsSection = document.getElementById('search-results-section');
+            if (searchResultsSection && !searchResultsSection.classList.contains('hidden')) {
+                 searchResultsSection.classList.remove('hidden');
+            } else {
+                document.querySelectorAll('main section').forEach(section => section.classList.remove('hidden'));
+            }
+        });
+
+        document.getElementById('add-comment-btn').addEventListener('click', () => {
+            const commentText = document.getElementById('comment-input').value.trim();
+            if (commentText) {
+                addCommentToMedia(id, commentText);
+                showMediaDetails(id, type); // Reload details to show new comment
+            }
+        });
+
+    } catch (error) {
+        console.error("Error fetching media details:", error);
+        detailSection.querySelector('#detail-content').innerHTML = `
+            <p class="text-center text-red-500">Failed to load media details.</p>
+            <button id="close-detail-btn" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-3xl font-bold">×</button>
+        `;
+
+        //8.) Ensure close button works even on error
+        document.getElementById('close-detail-btn').addEventListener('click', () => {
+            detailSection.classList.add('hidden');
+            mainContent.classList.remove('hidden');
+            const searchResultsSection = document.getElementById('search-results-section');
+            if (searchResultsSection && !searchResultsSection.classList.contains('hidden')) {
+                 searchResultsSection.classList.remove('hidden');
+            } else {
+                document.querySelectorAll('main section').forEach(section => section.classList.remove('hidden'));
+            }
+        });
+    }
 }
-
-
-
-
-
 
 
 // Ensure the content loads and nav highlights when the DOM is ready
