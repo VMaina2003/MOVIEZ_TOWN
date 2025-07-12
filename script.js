@@ -92,7 +92,7 @@ async function loadInitialContent() {
   let heroTitle = "";
 
   // Determine content based on the current page
-  if (path.includes(indexed.html) || path === "/") {
+  if (path.includes('index.html') || path === "/") {
     mediaType = "movie";
     trendingEndpoint = "/trending/movie/week";
     popularEndpoint = "/movie/popular";
@@ -100,7 +100,7 @@ async function loadInitialContent() {
     trendingGridId = "trending-movies-grid";
     popularGridId = "popular-movies-grid";
     heroTitle = "Featured Movie";
-    document.title = "My Movie Hub - Movies";
+    document.title = "My Movie' Hub - Movies";
   } else if (path.includes("series.html")) {
     mediaType = "tv";
     trendingEndpoint = "/trending/tv/week";
@@ -148,3 +148,65 @@ async function loadInitialContent() {
     }
   }
 }
+
+/// --- Search Functionality ---
+const searchInput = document.getElementById('search-input');
+let searchTimeout;
+
+searchInput.addEventListener('input', (e) => {
+    clearTimeout(searchTimeout);
+    const query = e.target.value.trim();
+
+    searchTimeout = setTimeout(async () => {
+        const mainContent = document.querySelector('main');
+        let searchResultsSection = document.getElementById('search-results-section');
+        const header = document.querySelector('header'); // Get header to keep it visible
+
+        if (query.length > 2) {
+            const searchResults = await fetchMedia(`/search/multi?query=${encodeURIComponent(query)}`);
+
+            // Create search results section if it doesn't exist
+            if (!searchResultsSection) {
+                searchResultsSection = document.createElement('section');
+                searchResultsSection.id = 'search-results-section';
+                searchResultsSection.classList.add('mb-8', 'container', 'mx-auto', 'py-8');
+                searchResultsSection.innerHTML = `
+                    <h2 class="text-3xl font-bold mb-6 text-center">Search Results for "${query}"</h2>
+                    <div id="search-results-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                    </div>
+                `;
+                // Insert search results section right after the header
+                header.insertAdjacentElement('afterend', searchResultsSection);
+            } else {
+                 searchResultsSection.querySelector('h2').textContent = `Search Results for "${query}"`;
+            }
+
+            // Hide existing main content sections
+            document.querySelectorAll('main section').forEach(section => section.classList.add('hidden'));
+
+            // Display search results
+            displayMedia(searchResults, 'search-results-grid');
+
+        } else if (query.length === 0) {
+            // If search input is cleared, remove search results section and reload initial content
+            if (searchResultsSection) {
+                searchResultsSection.remove();
+            }
+            document.querySelectorAll('main section').forEach(section => section.classList.remove('hidden')); // Show all sections again
+            loadInitialContent(); // Reload initial content
+        }
+    }, 500);
+});
+
+
+
+
+
+
+
+
+// Ensure the content loads and nav highlights when the DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    loadInitialContent();
+    highlightActiveNav();
+});
