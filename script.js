@@ -1,4 +1,4 @@
-const API_KEY = "";
+const API_KEY = "1c6a30042546b32b016f0735ec16a17e";
 const BASE_URL = "https://api.themoviedb.org/3";
 const IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500";
 const ORIGINAL_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/original";
@@ -223,6 +223,27 @@ document.addEventListener('click', async (event) => {
         }
     }
 });
+
+// 2.) showMediaDetails(id, type) Function
+async function showMediaDetails(id, type);{
+    const detailSection = document.getElementById('movie-detail-section');
+    const mainContent = document.querySelector('main');
+
+    if (!detailSection) {
+        console.error("Movie detail section not found. Please add <section id='movie-detail-section'> to your HTML.");
+        return;
+    }
+
+    // Hide main content and search results section if visible
+    mainContent.classList.add('hidden');
+    const searchResultsSection = document.getElementById('search-results-section');
+    if (searchResultsSection) searchResultsSection.classList.add('hidden');
+    detailSection.classList.remove('hidden');
+
+    // initial loading state within the detail modal content area
+
+}
+
 
 
 
