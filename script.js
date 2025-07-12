@@ -96,41 +96,55 @@ async function loadInitialContent() {
     mediaType = "movie";
     trendingEndpoint = "/trending/movie/week";
     popularEndpoint = "/movie/popular";
-    heroEndpoint = "/movie/now_playing"; 
+    heroEndpoint = "/movie/now_playing";
     trendingGridId = "trending-movies-grid";
     popularGridId = "popular-movies-grid";
     heroTitle = "Featured Movie";
     document.title = "My Movie Hub - Movies";
+  } else if (path.includes("series.html")) {
+    mediaType = "tv";
+    trendingEndpoint = "/trending/tv/week";
+    popularEndpoint = "/tv/popular";
+    heroEndpoint = "/tv/top_rated";
+    trendingGridId = "trending-tv-grid";
+    popularGridId = "popular-tv-grid";
+    heroTitle = "Featured Series";
+    document.title = "My Movie Hub - Series";
+  } else if (path.includes("tvshows.html")) {
+    mediaType = "tv";
+    trendingEndpoint = "/tv/airing_today";
+    popularEndpoint = "/tv/on_the_air";
+    heroEndpoint = "/tv/popular";
+    trendingGridId = "airing-today-tv-grid";
+    popularGridId = "top-rated-tv-grid";
+    heroTitle = "Featured TV Show";
+    document.title = "My Movie Hub - TV Shows";
   }
-  else if(path.includes('series.html')){
-    mediaType = 'tv';
-        trendingEndpoint = '/trending/tv/week';
-        popularEndpoint = '/tv/popular';
-        heroEndpoint = '/tv/top_rated'; 
-        trendingGridId = 'trending-tv-grid'; 
-        popularGridId = 'popular-tv-grid';   
-        heroTitle = 'Featured Series';
-        document.title = "My Movie Hub - Series";
-    } 
-    else if (path.includes('tvshows.html')) {
-        mediaType = 'tv';
-        trendingEndpoint = '/tv/airing_today'; 
-        popularEndpoint = '/tv/on_the_air';   
-        heroEndpoint = '/tv/popular'; 
-        trendingGridId = 'airing-today-tv-grid'; 
-        popularGridId = 'top-rated-tv-grid';    
-        heroTitle = 'Featured TV Show';
-        document.title = "My Movie Hub - TV Shows";
+
+  /// Load trending content
+  const trendingMedia = await fetchMedia(trendingEndpoint);
+  displayMedia(trendingMedia, trendingGridId);
+
+  // Load popular content
+  const popularMedia = await fetchMedia(popularEndpoint);
+  displayMedia(popularMedia, popularGridId);
+
+  // Update Hero section
+  const heroSection = document.getElementById("hero-section");
+  if (heroSection) {
+    const heroData = await fetchMedia(heroEndpoint);
+    if (heroData.length > 0) {
+      const heroItem = heroData[0];
+      heroSection.style.backgroundImage = `url(${ORIGINAL_IMAGE_BASE_URL}${heroItem.backdrop_path})`;
+      heroSection.querySelector("h2").textContent =
+        heroItem.title || heroItem.name;
+      heroSection.querySelector("p").textContent = heroItem.overview
+        ? heroItem.overview.substring(0, 150) + "..."
+        : "No overview available.";
+
+      // Add data attributes to the hero section for detail view/trailer button
+      heroSection.dataset.id = heroItem.id;
+      heroSection.dataset.type = mediaType; // Use the determined mediaType for the hero
     }
   }
-
-/// Load trending content
-    const trendingMedia = await fetchMedia(trendingEndpoint);
-    displayMedia(trendingMedia, trendingGridId);
-
-    // Load popular content
-    const popularMedia = await fetchMedia(popularEndpoint);
-    displayMedia(popularMedia, popularGridId);
-
-
-
+}
