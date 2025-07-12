@@ -81,3 +81,47 @@ function displayMedia(mediaItems, containerId) {
 }
 
 // Main function to load content
+async function loadInitialContent() {
+  const path = window.location.pathname;
+  let mediaType = "movie"; // Default media type
+  let trendingEndpoint = "";
+  let popularEndpoint = "";
+  let heroEndpoint = ""; // Endpoint for the featured hero item
+  let trendingGridId = "";
+  let popularGridId = "";
+  let heroTitle = "";
+
+  // Determine content based on the current page
+  if (path.includes(indexed.html) || path === "/") {
+    mediaType = "movie";
+    trendingEndpoint = "/trending/movie/week";
+    popularEndpoint = "/movie/popular";
+    heroEndpoint = "/movie/now_playing"; 
+    trendingGridId = "trending-movies-grid";
+    popularGridId = "popular-movies-grid";
+    heroTitle = "Featured Movie";
+    document.title = "My Movie Hub - Movies";
+  }
+  else if(path.includes('series.html')){
+    mediaType = 'tv';
+        trendingEndpoint = '/trending/tv/week';
+        popularEndpoint = '/tv/popular';
+        heroEndpoint = '/tv/top_rated'; 
+        trendingGridId = 'trending-tv-grid'; 
+        popularGridId = 'popular-tv-grid';   
+        heroTitle = 'Featured Series';
+        document.title = "My Movie Hub - Series";
+    } 
+    else if (path.includes('tvshows.html')) {
+        mediaType = 'tv';
+        trendingEndpoint = '/tv/airing_today'; 
+        popularEndpoint = '/tv/on_the_air';   
+        heroEndpoint = '/tv/popular'; 
+        trendingGridId = 'airing-today-tv-grid'; 
+        popularGridId = 'top-rated-tv-grid';    
+        heroTitle = 'Featured TV Show';
+        document.title = "My Movie Hub - TV Shows";
+    }
+  }
+
+
