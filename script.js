@@ -1,4 +1,4 @@
-const API_KEY = "1c6a30042546b32b016f0735ec16a17e";
+const API_KEY = "";
 const BASE_URL = "https://api.themoviedb.org/3";
 const IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500";
 const ORIGINAL_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/original";
@@ -281,6 +281,81 @@ async function showMediaDetails(id, type);{
 
         const trailer = videos.results ? videos.results.find(video => video.type === 'Trailer' && video.site === 'YouTube') : null;
 
+
+        //4>) Correct YouTube embed URL format
+        const trailerEmbedUrl = trailer ? `https://www.youtube.com/embed/${trailer.key}` : ''; // Corrected for https and embed path
+
+        const detailContentHtml = `
+            <div class="flex flex-col md:flex-row gap-8 items-start">
+                <img src="${IMAGE_BASE_URL}${mediaDetails.poster_path}" alt="${mediaDetails.title || mediaDetails.name}" class="w-full md:w-64 h-auto md:h-96 object-cover rounded-lg shadow-lg flex-shrink-0">
+                <div class="flex-grow">
+                    <h2 class="text-4xl font-bold mb-4">${mediaDetails.title || mediaDetails.name}</h2>
+                    <p class="text-gray-300 text-lg mb-4">${mediaDetails.overview || 'No overview available.'}</p>
+                    <p class="text-md text-gray-400 mb-2"><strong>Release Date:</strong> ${mediaDetails.release_date || mediaDetails.first_air_date || 'N/A'}</p>
+                    <p class="text-md text-gray-400 mb-4"><strong>Rating:</strong> ${mediaDetails.vote_average ? mediaDetails.vote_average.toFixed(1) : 'N/A'} / 10 (${mediaDetails.vote_count || 0} votes)</p>
+                    <p class="text-md text-gray-400 mb-4"><strong>Genres:</strong> ${mediaDetails.genres ? mediaDetails.genres.map(g => g.name).join(', ') : 'N/A'}</p>
+                    ${type === 'tv' ? `<p class="text-md text-gray-400 mb-4"><strong>Number of Seasons:</strong> ${mediaDetails.number_of_seasons || 'N/A'}</p>` : ''}
+
+                    ${trailerEmbedUrl ? `
+                        <h3 class="text-2xl font-bold mt-6 mb-4">Trailer</h3>
+                        <div class="relative" style="padding-bottom: 56.25%; height: 0; overflow: hidden;">
+                            <iframe class="absolute top-0 left-0 w-full h-full rounded-lg" src="${trailerEmbedUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                        </div>
+                    ` : '<p class="text-gray-500 mt-6">No trailer available.</p>'}
+                </div>
+            </div>
+
+            ${seasonsHtml} <h3 class="text-2xl font-bold mt-8 mb-4">Comments</h3>
+            <div id="comments-section" class="mb-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                ${comments.length > 0 ? comments.map(comment => `<p class="bg-gray-700 p-3 rounded-md mb-2">${comment}</p>`).join('') : '<p class="text-gray-500">No comments yet. Be the first to comment!</p>'}
+            </div>
+            <textarea id="comment-input" class="w-full bg-gray-700 text-white rounded-md p-3 mb-2 focus:outline-none focus:ring-2 focus:ring-red-500" rows="3" placeholder="Add a comment..."></textarea>
+            <button id="add-comment-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md">Add Comment</button>
+        `;
+        detailSection.querySelector('#detail-content').innerHTML = detailContentHtml;
+
+        //5.) Attach event listeners for season toggles
+        if (type === 'tv') {
+            document.querySelectorAll('.toggle-season').forEach(seasonDiv => {
+                seasonDiv.addEventListener('click', async (e) => {
+                    const targetDiv = e.currentTarget;
+                    const episodesContainer = targetDiv.querySelector('.season-episodes');
+                    const seasonNumber = targetDiv.dataset.seasonNumber;
+                    const tvId = targetDiv.dataset.tvId;
+                    const toggleIcon = targetDiv.querySelector('span');
+
+                    if (episodesContainer.classList.contains('hidden')) {
+
+                        //6.)Load episodes if not already loaded
+                         if (!episodesContainer.dataset.loaded) {
+                            episodesContainer.innerHTML = `<p class="text-gray-400">Loading episodes...</p>`;
+                            const episodesData = await fetchMedia(`/${type}/${tvId}/season/${seasonNumber}`);
+                            if (episodesData && episodesData.episodes && episodesData.episodes.length > 0) {
+                                episodesContainer.innerHTML = episodesData.episodes.map(episode => `
+                                    <div class="flex items-start gap-2 mb-2 p-2 bg-gray-600 rounded-md">
+                                        <img src="${episode.still_path ? `${IMAGE_BASE_URL}${episode.still_path}` : 'https://via.placeholder.com/150x84?text=No+Image'}" alt="Episode Still" class="w-24 h-auto rounded-md flex-shrink-0">
+                                        <div>
+                                            <p class="text-md font-semibold">E${episode.episode_number}: ${episode.name}</p>
+                                            <p class="text-sm text-gray-300">${episode.overview ? episode.overview.substring(0, 100) + '...' : 'No overview.'}</p>
+                                            <p class="text-xs text-gray-400">Air Date: ${episode.air_date || 'N/A'}</p>
+                                        </div>
+                                    </div>
+                                `).join('');
+                                episodesContainer.dataset.loaded = 'true'; // Mark as loaded
+                            } else {
+                                episodesContainer.innerHTML = `<p class="text-gray-400">No episodes found for this season.</p>`;
+                            }
+                        }
+                        episodesContainer.classList.remove('hidden');
+                        toggleIcon.textContent = '-'; // Change icon to collapse
+                    } else {
+                        episodesContainer.classList.add('hidden');
+                        toggleIcon.textContent = '+'; // Change icon to expand
+                    }
+                });
+            });
+        }
+        
 }
 
 
