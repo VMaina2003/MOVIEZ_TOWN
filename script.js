@@ -396,6 +396,21 @@ async function showMediaDetails(id, type);{
     }
 }
 
+// --- Comments using Local Storage ---
+function getCommentsForMedia(mediaId) {
+    const allComments = JSON.parse(localStorage.getItem('mediaComments')) || {};
+    return allComments[mediaId] || [];
+}
+
+function addCommentToMedia(mediaId, commentText) {
+    const allComments = JSON.parse(localStorage.getItem('mediaComments')) || {};
+    if (!allComments[mediaId]) {
+        allComments[mediaId] = [];
+    }
+    allComments[mediaId].push(commentText);
+    localStorage.setItem('mediaComments', JSON.stringify(allComments));
+}
+
 
 // Ensure the content loads and nav highlights when the DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
