@@ -1,4 +1,4 @@
-const API_KEY = "";
+const API_KEY = "1c6a30042546b32b016f0735ec16a17e";
 const BASE_URL = "https://api.themoviedb.org/3";
 const IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500";
 const ORIGINAL_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/original";
@@ -199,7 +199,6 @@ searchInput.addEventListener('input', (e) => {
 });
 
 // media details & comments
-
 // 1) Event listener for Clicks.
 document.addEventListener('click', async (event) => {
     const mediaCard = event.target.closest('[data-id][data-type]'); 
@@ -225,7 +224,7 @@ document.addEventListener('click', async (event) => {
 });
 
 // 2.) showMediaDetails(id, type) Function
-async function showMediaDetails(id, type);{
+async function showMediaDetails(id, type) {
     const detailSection = document.getElementById('movie-detail-section');
     const mainContent = document.querySelector('main');
 
