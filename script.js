@@ -124,4 +124,13 @@ async function loadInitialContent() {
     }
   }
 
+/// Load trending content
+    const trendingMedia = await fetchMedia(trendingEndpoint);
+    displayMedia(trendingMedia, trendingGridId);
+
+    // Load popular content
+    const popularMedia = await fetchMedia(popularEndpoint);
+    displayMedia(popularMedia, popularGridId);
+
+
 
