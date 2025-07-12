@@ -240,7 +240,46 @@ async function showMediaDetails(id, type);{
     if (searchResultsSection) searchResultsSection.classList.add('hidden');
     detailSection.classList.remove('hidden');
 
-    // initial loading state within the detail modal content area
+     //3.) Initial loading state within the detail modal content area
+    detailSection.querySelector('#detail-content').innerHTML = `
+        <p class="text-center text-lg text-red-500">Loading details...</p>
+        <div class="flex justify-center items-center mt-4">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500"></div>
+        </div>
+    `;
+
+    try {
+        const mediaDetails = await fetchMedia(`/${type}/${id}`);
+        const videosData = await fetch(`${BASE_URL}/${type}/${id}/videos?api_key=${API_KEY}&language=en-US`);
+        const videos = await videosData.json();
+
+        let seasonsHtml = '';
+        if (type === 'tv' && mediaDetails.seasons && mediaDetails.seasons.length > 0) {
+            seasonsHtml = `
+                <h3 class="text-2xl font-bold mt-8 mb-4">Seasons & Episodes</h3>
+                <div class="flex flex-col gap-4">
+            `;
+            mediaDetails.seasons.forEach(season => {
+                if (season.season_number === 0 && season.episode_count === 0) return; // Skip "Specials" season if it has no episodes listed
+
+                seasonsHtml += `
+                    <div class="bg-gray-700 p-4 rounded-lg shadow-md cursor-pointer toggle-season" data-season-id="${season.id}" data-season-number="${season.season_number}" data-tv-id="${id}" >
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-xl font-semibold">${season.name} (${season.episode_count || 'N/A'} Episodes)</h4>
+                            <span class="text-xl">+</span>
+                        </div>
+                        <div class="season-episodes hidden mt-4 pl-4 border-l border-gray-600">
+                            <p class="text-gray-400">Click to load episodes...</p>
+                        </div>
+                    </div>
+                `;
+            });
+            seasonsHtml += `</div>`;
+        }
+
+        const comments = getCommentsForMedia(id);
+
+        const trailer = videos.results ? videos.results.find(video => video.type === 'Trailer' && video.site === 'YouTube') : null;
 
 }
 
