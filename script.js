@@ -198,7 +198,31 @@ searchInput.addEventListener('input', (e) => {
     }, 500);
 });
 
+// media details & comments
 
+// 1) Event listener for Clicks.
+document.addEventListener('click', async (event) => {
+    const mediaCard = event.target.closest('[data-id][data-type]'); 
+    const watchTrailerButton = event.target.closest('hero-section button'); 
+
+    let id, type;
+
+    if (mediaCard) {
+        id = mediaCard.dataset.id;
+        type = mediaCard.dataset.type;
+        await showMediaDetails(id, type);
+    } else if (watchTrailerButton) {
+        const heroSection = document.getElementById('hero-section');
+        id = heroSection.dataset.id;
+        type = heroSection.dataset.type;
+
+        if (id && type) {
+            await showMediaDetails(id, type);
+        } else {
+            console.warn("Hero section data-id or data-type not set for trailer button.");
+        }
+    }
+});
 
 
 
