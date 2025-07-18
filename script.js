@@ -1,5 +1,5 @@
 // TMDB API Configuration
-const API_KEY = "33a2ce9c697f0c5fa3b9601425420444";
+const API_KEY = "d2aac7456bf07db40918764f9a7bddf1";
 const BASE_URL = "https://api.themoviedb.org/3";
 const IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500";
 const ORIGINAL_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/original";
@@ -25,7 +25,7 @@ const pageTrackers = {
     popular: { movie: 1, tv: 1, onTheAir: 1 },
     search: 1
 };
-let isLoading = true;
+let isLoading = false;
 let currentTrendingEndpoint = "";
 let currentPopularEndpoint = "";
 let currentTrendingGridId = "";
@@ -232,7 +232,7 @@ let searchTimeout;
 
 searchInput.addEventListener('input', async (e) => {
     clearTimeout(searchTimeout);
-    const query = e.target.value.trim();
+    const query = e.target.valuegit();
     currentSearchQuery = query;
 
     const mainContentSections = document.querySelectorAll('main section:not(#search-results-section)');
@@ -241,7 +241,7 @@ searchInput.addEventListener('input', async (e) => {
 
     if (query.length > 2) {
         searchTimeout = setTimeout(async () => {
-            const searchResults = await fetchMedia(`/search/multi?query=${encodeURIComponent(query)}`, 1);
+            const searchResults = await fetchMedia(`https://api.themoviedb.org/3/search/keyword/api_key=${API_KEY}&query=${encodeURIComponent(query)}`);
 
             // Ensure searchResultsSection exists and is visible
             if (!searchResultsSection) {
