@@ -4,19 +4,6 @@ const BASE_URL = "https://api.themoviedb.org/3";
 const IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500";
 const ORIGINAL_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/original";
 
-// Endless Scroll State Variables
-const pageTrackers = {
-    trending: { movie: 1, tv: 1, airingToday: 1 },
-    popular: { movie: 1, tv: 1, onTheAir: 1 },
-    search: 1
-};
-let isLoading = false;
-let currentTrendingEndpoint = "";
-let currentPopularEndpoint = "";
-let currentTrendingGridId = "";
-let currentPopularGridId = "";
-let currentSearchQuery = "";
-
 // --- Function to fetch data from TMDb ---
 async function fetchMedia(endpoint, page = 1) {
     try {
@@ -31,6 +18,21 @@ async function fetchMedia(endpoint, page = 1) {
         return [];
     }
 }
+
+// Endless Scroll State Variables
+const pageTrackers = {
+    trending: { movie: 1, tv: 1, airingToday: 1 },
+    popular: { movie: 1, tv: 1, onTheAir: 1 },
+    search: 1
+};
+let isLoading = true;
+let currentTrendingEndpoint = "";
+let currentPopularEndpoint = "";
+let currentTrendingGridId = "";
+let currentPopularGridId = "";
+let currentSearchQuery = "";
+
+
 
 // --- Highlight Active Navigation Link ---
 function highlightActiveNav() {
@@ -73,7 +75,7 @@ function createMediaCard(media) {
         <div class="bg-gray-800 rounded-lg shadow-md overflow-hidden transform hover:scale-105 transition-transform duration-300 cursor-pointer" data-id="${media.id}" data-type="${mediaType}">
             <img src="${posterPath}" alt="${title}" class="w-full h-72 object-cover">
             <div class="p-4">
-                <h3 class="text-lg font-semibold truncate hover:text-red-500">${title}</h3>
+                <h3 class="text-lg font-semibold hover:text-red-500">${title}</h3>
                 <p class="text-sm text-gray-400 mt-2">Rating: ${voteAverage} / 10</p>
             </div>
         </div>
