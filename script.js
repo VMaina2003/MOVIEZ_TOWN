@@ -1,4 +1,5 @@
-const API_KEY = "1c6a30042546b32b016f0735ec16a17e";
+// TMDB API Configuration
+const API_KEY = "33a2ce9c697f0c5fa3b9601425420444";
 const BASE_URL = "https://api.themoviedb.org/3";
 const IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500";
 const ORIGINAL_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/original";
@@ -7,15 +8,17 @@ const ORIGINAL_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/original";
 const pageTrackers = {
     trending: { movie: 1, tv: 1, airingToday: 1 },
     popular: { movie: 1, tv: 1, onTheAir: 1 },
+    search: 1
 };
 let isLoading = false;
 let currentTrendingEndpoint = "";
 let currentPopularEndpoint = "";
 let currentTrendingGridId = "";
 let currentPopularGridId = "";
+let currentSearchQuery = "";
 
-// Function to fetch data from TMDb
-async function fetchMedia(endpoint, page = 1) { // Added page parameter for endless scroll
+// --- Function to fetch data from TMDb ---
+async function fetchMedia(endpoint, page = 1) {
     try {
         const response = await fetch(`${BASE_URL}${endpoint}?api_key=${API_KEY}&page=${page}`);
         if (!response.ok) {
@@ -29,38 +32,36 @@ async function fetchMedia(endpoint, page = 1) { // Added page parameter for endl
     }
 }
 
-// --- Highlight Active Navigation Link
+// --- Highlight Active Navigation Link ---
 function highlightActiveNav() {
     const navLinks = document.querySelectorAll("nav ul li a");
     const currentPath = window.location.pathname.split("/").pop();
 
     navLinks.forEach((link) => {
-        // Remove active classes from all links first
         link.classList.remove("text-red-500", "border-b-2", "border-red-500");
-        link.classList.add("hover:text-red-500"); // Ensure hover effect remains
+        link.classList.add("hover:text-red-500");
 
         const linkPath = link.href.split("/").pop();
 
-        // Check for active link (handles root URL accessing index.html)
         if (
             currentPath === linkPath ||
             (currentPath === "" && linkPath === "index.html")
         ) {
             link.classList.add("text-red-500", "border-b-2", "border-red-500");
-            link.classList.remove("hover:text-red-500"); // Remove hover for the active one
+            link.classList.remove("hover:text-red-500");
         }
     });
 }
 
-// Function to create a movie/TV show card HTML
+// --- Function to create a movie/TV show card HTML ---
 function createMediaCard(media) {
     const posterPath = media.poster_path ?
         `${IMAGE_BASE_URL}${media.poster_path}` :
         "https://via.placeholder.com/200x300?text=No+Image";
-    const title = media.title || media.name; // 'title' for movies, 'name' for TV shows
+    const title = media.title || media.name;
     const voteAverage = media.vote_average ?
         media.vote_average.toFixed(1) :
-        "N/A"; // Shows the rating like 8.5 / 10 If no rating, it shows 'N/A'.
+        "N/A";
     const mediaType =
         media.media_type ||
         (window.location.pathname.includes("series.html") ||
@@ -79,21 +80,20 @@ function createMediaCard(media) {
     `;
 }
 
-// This function renders a list of movie/TV show cards inside a specific container on your page.
-function displayMedia(mediaItems, containerId, append = false) { // Added append parameter for endless scroll
+// --- This function renders a list of movie/TV show cards inside a specific container on your page. ---
+function displayMedia(mediaItems, containerId, append = false) {
     const container = document.getElementById(containerId);
     if (container) {
         if (!append) {
-            container.innerHTML = ""; // removes previous content (so it doesn't stack new results on top).
+            container.innerHTML = "";
         }
-        // Loops through each movie or TV show object in the list Calls createMediaCard() to get the HTML Appends it to the container's innerHTML
         mediaItems.forEach((item) => {
             container.innerHTML += createMediaCard(item);
         });
     }
 }
 
-// Helper functions for Endless Scroll page tracking
+// --- Helper functions for Endless Scroll page tracking ---
 function getCurrentPage(endpoint) {
     if (endpoint.includes("/trending/movie/week")) return pageTrackers.trending.movie;
     if (endpoint.includes("/movie/popular")) return pageTrackers.popular.movie;
@@ -101,6 +101,7 @@ function getCurrentPage(endpoint) {
     if (endpoint.includes("/tv/popular")) return pageTrackers.popular.tv;
     if (endpoint.includes("/tv/airing_today")) return pageTrackers.trending.airingToday;
     if (endpoint.includes("/tv/on_the_air")) return pageTrackers.popular.onTheAir;
+    if (endpoint.includes("/search/multi")) return pageTrackers.search;
     return 1;
 }
 
@@ -111,157 +112,188 @@ function incrementPage(endpoint) {
     else if (endpoint.includes("/tv/popular")) pageTrackers.popular.tv++;
     else if (endpoint.includes("/tv/airing_today")) pageTrackers.trending.airingToday++;
     else if (endpoint.includes("/tv/on_the_air")) pageTrackers.popular.onTheAir++;
+    else if (endpoint.includes("/search/multi")) pageTrackers.search++;
 }
 
-// Main function to load content
+// --- Main function to load initial content based on the current page ---
 async function loadInitialContent() {
     const path = window.location.pathname;
-    let mediaType = "movie"; // Default media type
-    let heroEndpoint = ""; // Endpoint for the featured hero item
-    let heroTitle = "";
+    let mediaType = "movie";
+    let heroEndpoint = "";
 
-    // Reset page trackers on initial load of any page
-    pageTrackers.trending.movie = 1;
-    pageTrackers.trending.tv = 1;
-    pageTrackers.trending.airingToday = 1;
-    pageTrackers.popular.movie = 1;
-    pageTrackers.popular.tv = 1;
-    pageTrackers.popular.onTheAir = 1;
+    Object.keys(pageTrackers).forEach(key => {
+        if (typeof pageTrackers[key] === 'object') {
+            Object.keys(pageTrackers[key]).forEach(subKey => {
+                pageTrackers[key][subKey] = 1;
+            });
+        } else {
+            pageTrackers[key] = 1;
+        }
+    });
 
-    // Determine content based on the current page
+    // Determine content based on the current page and manage section visibility
+    // Get all relevant content sections
+    const allContentSections = [
+        document.getElementById('trending-movies-section'),
+        document.getElementById('popular-movies-section'),
+        document.getElementById('trending-tv-section'),
+        document.getElementById('popular-tv-section'),
+        document.getElementById('airing-today-tv-section') // Specific to tvshows.html
+    ];
+
+    // Hide all of them first
+    allContentSections.forEach(section => section && section.classList.add('hidden'));
+
+
     if (path.includes('index.html') || path === "/") {
         mediaType = "movie";
-        currentTrendingEndpoint = "/trending/movie/week"; // Set for endless scroll
-        currentPopularEndpoint = "/movie/popular"; // Set for endless scroll
+        currentTrendingEndpoint = "/trending/movie/week";
+        currentPopularEndpoint = "/movie/popular";
         heroEndpoint = "/movie/now_playing";
-        currentTrendingGridId = "trending-movies-grid"; // Set for endless scroll
-        currentPopularGridId = "popular-movies-grid"; // Set for endless scroll
-        document.title = "My Movie' Hub - Movies";
+        currentTrendingGridId = "trending-movies-grid";
+        currentPopularGridId = "popular-movies-grid";
+        document.title = "My Movie Hub - Movies";
+
+        document.getElementById('trending-movies-section')?.classList.remove('hidden');
+        document.getElementById('popular-movies-section')?.classList.remove('hidden');
+
     } else if (path.includes("series.html")) {
         mediaType = "tv";
-        currentTrendingEndpoint = "/trending/tv/week"; // Set for endless scroll
-        currentPopularEndpoint = "/tv/popular"; // Set for endless scroll
+        currentTrendingEndpoint = "/trending/tv/week";
+        currentPopularEndpoint = "/tv/popular";
         heroEndpoint = "/tv/top_rated";
-        currentTrendingGridId = "trending-tv-grid"; // Set for endless scroll
-        currentPopularGridId = "popular-tv-grid"; // Set for endless scroll
+        currentTrendingGridId = "trending-tv-grid";
+        currentPopularGridId = "popular-tv-grid";
         document.title = "My Movie Hub - Series";
+
+        document.getElementById('trending-tv-section')?.classList.remove('hidden');
+        document.getElementById('popular-tv-section')?.classList.remove('hidden');
+
     } else if (path.includes("tvshows.html")) {
         mediaType = "tv";
-        currentTrendingEndpoint = "/tv/airing_today"; // Set for endless scroll
-        currentPopularEndpoint = "/tv/on_the_air"; // Set for endless scroll
+        currentTrendingEndpoint = "/tv/airing_today";
+        currentPopularEndpoint = "/tv/on_the_air";
         heroEndpoint = "/tv/popular";
-        currentTrendingGridId = "airing-today-tv-grid"; // Set for endless scroll
-        currentPopularGridId = "top-rated-tv-grid"; // Set for endless scroll
+        currentTrendingGridId = "airing-today-tv-grid";
+        currentPopularGridId = "popular-tv-grid";
         document.title = "My Movie Hub - TV Shows";
+
+        document.getElementById('airing-today-tv-section')?.classList.remove('hidden');
+        document.getElementById('popular-tv-section')?.classList.remove('hidden');
     }
 
-    // Load initial content for trending and popular sections
-    // Note: page is 1 by default due to reset above
     const trendingMedia = await fetchMedia(currentTrendingEndpoint, getCurrentPage(currentTrendingEndpoint));
     displayMedia(trendingMedia, currentTrendingGridId);
 
     const popularMedia = await fetchMedia(currentPopularEndpoint, getCurrentPage(currentPopularEndpoint));
     displayMedia(popularMedia, currentPopularGridId);
 
-    // Update Hero section
     const heroSection = document.getElementById("hero-section");
     if (heroSection) {
         const heroData = await fetchMedia(heroEndpoint);
         if (heroData.length > 0) {
             const heroItem = heroData[0];
             heroSection.style.backgroundImage = `url(${ORIGINAL_IMAGE_BASE_URL}${heroItem.backdrop_path})`;
-            heroSection.querySelector("h2").textContent =
-                heroItem.title || heroItem.name;
+            heroSection.querySelector("h2").textContent = heroItem.title || heroItem.name;
             heroSection.querySelector("p").textContent = heroItem.overview ?
                 heroItem.overview.substring(0, 150) + "..." :
                 "No overview available.";
 
-            // Add data attributes to the hero section for detail view/trailer button
             heroSection.dataset.id = heroItem.id;
-            heroSection.dataset.type = mediaType; // Use the determined mediaType for the hero
+            heroSection.dataset.type = mediaType;
         }
     }
 }
 
 // --- Endless Scroll Event Listener ---
 window.addEventListener("scroll", async () => {
-    // Only trigger if not already loading and close to the bottom of the page
-    if (isLoading) return;
+    if (isLoading || currentSearchQuery) return;
 
-    // Check if user has scrolled to the bottom (within 500px)
     if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500) {
-        isLoading = true; // Set loading state to prevent multiple calls
+        isLoading = true;
 
-        // Load more trending content
-        incrementPage(currentTrendingEndpoint); // Increment page BEFORE fetching
+        incrementPage(currentTrendingEndpoint);
         const moreTrending = await fetchMedia(currentTrendingEndpoint, getCurrentPage(currentTrendingEndpoint));
-        displayMedia(moreTrending, currentTrendingGridId, true); // Append results
+        displayMedia(moreTrending, currentTrendingGridId, true);
 
-        // Load more popular content
-        incrementPage(currentPopularEndpoint); // Increment page BEFORE fetching
+        incrementPage(currentPopularEndpoint);
         const morePopular = await fetchMedia(currentPopularEndpoint, getCurrentPage(currentPopularEndpoint));
-        displayMedia(morePopular, currentPopularGridId, true); // Append results
+        displayMedia(morePopular, currentPopularGridId, true);
 
-        isLoading = false; // Reset loading state
+        isLoading = false;
     }
 });
-
 
 /// --- Search Functionality ---
 const searchInput = document.getElementById('search-input');
 let searchTimeout;
 
-searchInput.addEventListener('input', (e) => {
+searchInput.addEventListener('input', async (e) => {
     clearTimeout(searchTimeout);
     const query = e.target.value.trim();
+    currentSearchQuery = query;
 
-    searchTimeout = setTimeout(async () => {
-        const mainContent = document.querySelector('main');
-        let searchResultsSection = document.getElementById('search-results-section');
-        const header = document.querySelector('header'); // Get header to keep it visible
+    const mainContentSections = document.querySelectorAll('main section:not(#search-results-section)');
+    let searchResultsSection = document.getElementById('search-results-section');
+    const main = document.querySelector('main');
 
-        if (query.length > 2) {
-            const searchResults = await fetchMedia(`/search/multi?query=${encodeURIComponent(query)}`);
+    if (query.length > 2) {
+        searchTimeout = setTimeout(async () => {
+            const searchResults = await fetchMedia(`/search/multi?query=${encodeURIComponent(query)}`, 1);
 
-            // Create search results section if it doesn't exist
+            // Ensure searchResultsSection exists and is visible
             if (!searchResultsSection) {
                 searchResultsSection = document.createElement('section');
                 searchResultsSection.id = 'search-results-section';
                 searchResultsSection.classList.add('mb-8', 'container', 'mx-auto', 'py-8');
+                if (main) {
+                    // Prepend it to main, or adjust as per your desired layout
+                    const firstMainChild = main.firstElementChild;
+                    if (firstMainChild) {
+                        main.insertBefore(searchResultsSection, firstMainChild);
+                    } else {
+                        main.appendChild(searchResultsSection);
+                    }
+                }
+            }
+            searchResultsSection.classList.remove('hidden');
+
+            // Add the search title and grid container directly to the searchResultsSection
+            // ONLY if they don't already exist or if you need to clear old results
+            let searchResultsGrid = document.getElementById('search-results-grid');
+            if (!searchResultsGrid) {
                 searchResultsSection.innerHTML = `
                     <h2 class="text-3xl font-bold mb-6 text-center">Search Results for "${query}"</h2>
                     <div id="search-results-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                     </div>
                 `;
-                // Insert search results section right after the header
-                header.insertAdjacentElement('afterend', searchResultsSection);
+                searchResultsGrid = document.getElementById('search-results-grid'); // Get reference after creation
             } else {
+                // Update title and clear grid for new search
                 searchResultsSection.querySelector('h2').textContent = `Search Results for "${query}"`;
+                searchResultsGrid.innerHTML = ''; // Clear previous results
             }
 
-            // Hide existing main content sections
-            document.querySelectorAll('main section').forEach(section => section.classList.add('hidden'));
+            mainContentSections.forEach(section => section.classList.add('hidden'));
 
-            // Display search results
+            // Now display media into the correctly referenced grid
             displayMedia(searchResults, 'search-results-grid');
 
-        } else if (query.length === 0) {
-            // If search input is cleared, remove search results section and reload initial content
-            if (searchResultsSection) {
-                searchResultsSection.remove();
-            }
-            document.querySelectorAll('main section').forEach(section => section.classList.remove('hidden')); // Show all sections again
-            loadInitialContent(); // Reload initial content
+        }, 500);
+    } else if (query.length === 0) {
+        if (searchResultsSection) {
+            searchResultsSection.classList.add('hidden');
+            searchResultsSection.innerHTML = '';
         }
-    }, 500);
+        mainContentSections.forEach(section => section.classList.remove('hidden'));
+        loadInitialContent();
+    }
 });
 
-// media details & comments
-// 1) Event listener for Clicks.
+// --- Media Details & Comments ---
 document.addEventListener('click', async (event) => {
     const mediaCard = event.target.closest('[data-id][data-type]');
-    // Corrected selector for the watch trailer button to be more specific
-    const watchTrailerButton = event.target.closest('#hero-section .watch-trailer-btn'); 
+    const watchTrailerButton = event.target.closest('#hero-section .watch-trailer-btn');
 
     let id, type;
 
@@ -282,29 +314,33 @@ document.addEventListener('click', async (event) => {
     }
 });
 
-// 2.) showMediaDetails(id, type) Function
 async function showMediaDetails(id, type) {
     const detailSection = document.getElementById('movie-detail-section');
     const mainContent = document.querySelector('main');
+    const searchResultsSection = document.getElementById('search-results-section');
 
     if (!detailSection) {
         console.error("Movie detail section not found. Please add <section id='movie-detail-section'> to your HTML.");
         return;
     }
 
-    // Hide main content and search results section if visible
-    mainContent.classList.add('hidden');
-    const searchResultsSection = document.getElementById('search-results-section');
-    if (searchResultsSection) searchResultsSection.classList.add('hidden');
-    detailSection.classList.remove('hidden');
+    const detailContentContainer = detailSection.querySelector('#detail-content');
 
-    // 3.) Initial loading state within the detail modal content area
-    detailSection.querySelector('#detail-content').innerHTML = `
+    // Hide main content and search results section
+    mainContent.classList.add('hidden');
+    if (searchResultsSection) searchResultsSection.classList.add('hidden');
+    detailSection.classList.remove('hidden'); // Show the modal overlay
+
+    // Set initial loading state and center it
+    detailContentContainer.innerHTML = `
         <p class="text-center text-lg text-red-500">Loading details...</p>
         <div class="flex justify-center items-center mt-4">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500"></div>
+            <div class=" rounded-full h-12 w-12 border-b-2 border-red-500"></div>
         </div>
     `;
+    // These classes are for centering the loading message within the flex-grow container
+    detailContentContainer.classList.add('flex', 'justify-center', 'items-center', 'h-full');
+
 
     try {
         const mediaDetails = await fetchMedia(`/${type}/${id}`);
@@ -318,7 +354,6 @@ async function showMediaDetails(id, type) {
                 <div class="flex flex-col gap-4">
             `;
             mediaDetails.seasons.forEach(season => {
-                // Skip "Specials" season if it has no episodes listed
                 if (season.season_number === 0 && season.episode_count === 0) return;
 
                 seasonsHtml += `
@@ -337,48 +372,58 @@ async function showMediaDetails(id, type) {
         }
 
         const comments = getCommentsForMedia(id);
-
         const trailer = videos.results ? videos.results.find(video => video.type === 'Trailer' && video.site === 'YouTube') : null;
-
-        // 4.) Correct YouTube embed URL format
-        // This is the correct format for embedding YouTube videos
+        // Correct YouTube embed URL: Note the corrected domain and template literal syntax
         const trailerEmbedUrl = trailer ? `https://www.youtube.com/embed/${trailer.key}` : '';
 
-        // This is the HTML that will be inserted into the #detail-content div
         const detailContentHtml = `
-            <button id="close-detail-btn" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-3xl font-bold z-10">×</button>
-            <div class="overflow-y-auto custom-scrollbar flex-grow p-8">
-                <div class="flex flex-col md:flex-row gap-8 items-start">
-                    <img src="${mediaDetails.poster_path ? `${IMAGE_BASE_URL}${mediaDetails.poster_path}` : "https://via.placeholder.com/200x300?text=No+Image"}" alt="${mediaDetails.title || mediaDetails.name}" class="w-full md:w-64 h-auto md:h-96 object-cover rounded-lg shadow-lg flex-shrink-0">
-                    <div class="flex-grow">
-                        <h2 class="text-4xl font-bold mb-4">${mediaDetails.title || mediaDetails.name}</h2>
-                        <p class="text-gray-300 text-lg mb-4">${mediaDetails.overview || 'No overview available.'}</p>
-                        <p class="text-md text-gray-400 mb-2"><strong>Release Date:</strong> ${mediaDetails.release_date || mediaDetails.first_air_date || 'N/A'}</p>
-                        <p class="text-md text-gray-400 mb-4"><strong>Rating:</strong> ${mediaDetails.vote_average ? mediaDetails.vote_average.toFixed(1) : 'N/A'} / 10 (${mediaDetails.vote_count || 0} votes)</p>
-                        <p class="text-md text-gray-400 mb-4"><strong>Genres:</strong> ${mediaDetails.genres ? mediaDetails.genres.map(g => g.name).join(', ') : 'N/A'}</p>
-                        ${type === 'tv' ? `<p class="text-md text-gray-400 mb-4"><strong>Number of Seasons:</strong> ${mediaDetails.number_of_seasons || 'N/A'}</p>` : ''}
+            <div class="flex flex-col md:flex-row gap-8 items-start mb-8">
+                <img src="${mediaDetails.poster_path ? `${IMAGE_BASE_URL}${mediaDetails.poster_path}` : "https://via.placeholder.com/200x300?text=No+Image"}"
+                     alt="${mediaDetails.title || mediaDetails.name}"
+                     class="w-full md:w-64 h-auto md:h-96 object-cover rounded-lg shadow-lg flex-shrink-0">
+                <div class="flex-grow">
+                    <h2 class="text-4xl font-bold mb-4">${mediaDetails.title || mediaDetails.name}</h2>
+                    <p class="text-gray-300 text-lg mb-4">${mediaDetails.overview || 'No overview available.'}</p>
+                    <p class="text-md text-gray-400 mb-2"><strong>Release Date:</strong> ${mediaDetails.release_date || mediaDetails.first_air_date || 'N/A'}</p>
+                    <p class="text-md text-gray-400 mb-4"><strong>Rating:</strong> ${mediaDetails.vote_average ? mediaDetails.vote_average.toFixed(1) : 'N/A'} / 10 (${mediaDetails.vote_count || 0} votes)</p>
+                    <p class="text-md text-gray-400 mb-4"><strong>Genres:</strong> ${mediaDetails.genres ? mediaDetails.genres.map(g => g.name).join(', ') : 'N/A'}</p>
+                    ${type === 'tv' ? `<p class="text-md text-gray-400 mb-4"><strong>Number of Seasons:</strong> ${mediaDetails.number_of_seasons || 'N/A'}</p>` : ''}
 
-                        ${trailerEmbedUrl ? `
-                            <h3 class="text-2xl font-bold mt-6 mb-4">Trailer</h3>
-                            <div class="relative" style="padding-bottom: 56.25%; height: 0; overflow: hidden;">
-                                <iframe class="absolute top-0 left-0 w-full h-full rounded-lg" src="${trailerEmbedUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-                            </div>
-                        ` : '<p class="text-gray-500 mt-6">No trailer available.</p>'}
-                    </div>
+                    ${trailerEmbedUrl ? `
+                        <h3 class="text-2xl font-bold mt-6 mb-4">Trailer</h3>
+                        <div class="relative" style="padding-bottom: 56.25%; height: 0; overflow: hidden;">
+                            <iframe class="absolute top-0 left-0 w-full h-full rounded-lg"
+                                    src="${trailerEmbedUrl}"
+                                    frameborder="0"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowfullscreen>
+                            </iframe>
+                        </div>
+                    ` : '<p class="text-gray-500 mt-6">No trailer available.</p>'}
                 </div>
-
-                ${seasonsHtml}
-                <h3 class="text-2xl font-bold mt-8 mb-4">Comments</h3>
-                <div id="comments-section" class="mb-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                    ${comments.length > 0 ? comments.map(comment => `<p class="bg-gray-700 p-3 rounded-md mb-2">${comment}</p>`).join('') : '<p class="text-gray-500">No comments yet. Be the first to comment!</p>'}
-                </div>
-                <textarea id="comment-input" class="w-full bg-gray-700 text-white rounded-md p-3 mb-2 focus:outline-none focus:ring-2 focus:ring-red-500" rows="3" placeholder="Add a comment..."></textarea>
-                <button id="add-comment-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md">Add Comment</button>
             </div>
-        `;
-        detailSection.querySelector('#detail-content').innerHTML = detailContentHtml;
 
-        // 5.) Attach event listeners for season toggles
+            ${seasonsHtml}
+
+            <h3 class="text-2xl font-bold mt-8 mb-4">Comments</h3>
+            <div id="comments-section" class="mb-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                ${comments.length > 0 ? comments.map(comment => `<p class="bg-gray-700 p-3 rounded-md mb-2">${comment}</p>`).join('') : '<p class="text-gray-500">No comments yet. Be the first to comment!</p>'}
+            </div>
+            <textarea id="comment-input" class="w-full bg-gray-700 text-white rounded-md p-3 mb-2 focus:outline-none focus:ring-2 focus:ring-red-500" rows="3" placeholder="Add a comment..."></textarea>
+            <button id="add-comment-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md">Add Comment</button>
+        `;
+
+        // Clear initial loading state classes
+        detailContentContainer.classList.remove('flex', 'justify-center', 'items-center', 'h-full', 'overflow-hidden');
+
+        // Populate and add scroll classes
+        detailContentContainer.innerHTML = detailContentHtml;
+        detailContentContainer.classList.add('overflow-y-auto', 'custom-scrollbar', 'p-8');
+        // Setting flex-grow: 1 ensures it fills available vertical space, and combined with overflow-y-auto, enables scrolling.
+        detailContentContainer.style.flex = '1';
+
+
+        // Attach event listeners for season toggles (only if it's a TV show)
         if (type === 'tv') {
             document.querySelectorAll('.toggle-season').forEach(seasonDiv => {
                 seasonDiv.addEventListener('click', async (e) => {
@@ -389,15 +434,15 @@ async function showMediaDetails(id, type) {
                     const toggleIcon = targetDiv.querySelector('span');
 
                     if (episodesContainer.classList.contains('hidden')) {
-
-                        // 6.) Load episodes if not already loaded
                         if (!episodesContainer.dataset.loaded) {
                             episodesContainer.innerHTML = `<p class="text-gray-400">Loading episodes...</p>`;
                             const episodesData = await fetchMedia(`/${type}/${tvId}/season/${seasonNumber}`);
                             if (episodesData && episodesData.episodes && episodesData.episodes.length > 0) {
                                 episodesContainer.innerHTML = episodesData.episodes.map(episode => `
                                     <div class="flex items-start gap-2 mb-2 p-2 bg-gray-600 rounded-md">
-                                        <img src="${episode.still_path ? `${IMAGE_BASE_URL}${episode.still_path}` : 'https://via.placeholder.com/150x84?text=No+Image'}" alt="Episode Still" class="w-24 h-auto rounded-md flex-shrink-0">
+                                        <img src="${episode.still_path ? `${IMAGE_BASE_URL}${episode.still_path}` : 'https://via.placeholder.com/150x84?text=No+Image'}"
+                                             alt="Episode Still"
+                                             class="w-24 h-auto rounded-md flex-shrink-0">
                                         <div>
                                             <p class="text-md font-semibold">E${episode.episode_number}: ${episode.name}</p>
                                             <p class="text-sm text-gray-300">${episode.overview ? episode.overview.substring(0, 100) + '...' : 'No overview.'}</p>
@@ -405,57 +450,67 @@ async function showMediaDetails(id, type) {
                                         </div>
                                     </div>
                                 `).join('');
-                                episodesContainer.dataset.loaded = 'true'; // Mark as loaded
+                                episodesContainer.dataset.loaded = 'true';
                             } else {
                                 episodesContainer.innerHTML = `<p class="text-gray-400">No episodes found for this season.</p>`;
                             }
                         }
                         episodesContainer.classList.remove('hidden');
-                        toggleIcon.textContent = '-'; // Change icon to collapse
+                        toggleIcon.textContent = '-';
                     } else {
                         episodesContainer.classList.add('hidden');
-                        toggleIcon.textContent = '+'; // Change icon to expand
+                        toggleIcon.textContent = '+';
                     }
                 });
             });
         }
-        // 7.) Attach event listeners for close button and add comment button
+
+        // Attach event listeners for close button and add comment button
         document.getElementById('close-detail-btn').addEventListener('click', () => {
             detailSection.classList.add('hidden');
-            mainContent.classList.remove('hidden');
-            const searchResultsSection = document.getElementById('search-results-section');
+
+            // Remove scroll and flex classes from detailContentContainer when closing
+            detailContentContainer.classList.remove('overflow-y-auto', 'custom-scrollbar', 'p-8');
+            detailContentContainer.classList.add('overflow-hidden'); // Restore initial hidden overflow
+            detailContentContainer.style.flex = ''; // Remove explicit flex style
+
             if (searchResultsSection && !searchResultsSection.classList.contains('hidden')) {
                 searchResultsSection.classList.remove('hidden');
             } else {
-                document.querySelectorAll('main section').forEach(section => section.classList.remove('hidden'));
+                document.querySelectorAll('main section:not(#search-results-section)').forEach(section => section.classList.remove('hidden'));
             }
+            mainContent.classList.remove('hidden');
         });
 
         document.getElementById('add-comment-btn').addEventListener('click', () => {
-            const commentText = document.getElementById('comment-input').value.trim();
+            const commentInput = document.getElementById('comment-input');
+            const commentText = commentInput.value.trim();
             if (commentText) {
                 addCommentToMedia(id, commentText);
-                showMediaDetails(id, type); // Reload details to show new comment
+                commentInput.value = '';
+                showMediaDetails(id, type); // Reload details to show the new comment
             }
         });
 
     } catch (error) {
         console.error("Error fetching media details:", error);
-        detailSection.querySelector('#detail-content').innerHTML = `
+        detailContentContainer.innerHTML = `
             <p class="text-center text-red-500">Failed to load media details.</p>
-            <button id="close-detail-btn" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-3xl font-bold">×</button>
         `;
-
-        // 8.) Ensure close button works even on error
+        // Ensure close button works even on error
         document.getElementById('close-detail-btn').addEventListener('click', () => {
             detailSection.classList.add('hidden');
-            mainContent.classList.remove('hidden');
-            const searchResultsSection = document.getElementById('search-results-section');
+
+            detailContentContainer.classList.remove('overflow-y-auto', 'custom-scrollbar', 'p-8');
+            detailContentContainer.classList.add('overflow-hidden');
+            detailContentContainer.style.flex = '';
+
             if (searchResultsSection && !searchResultsSection.classList.contains('hidden')) {
                 searchResultsSection.classList.remove('hidden');
             } else {
-                document.querySelectorAll('main section').forEach(section => section.classList.remove('hidden'));
+                document.querySelectorAll('main section:not(#search-results-section)').forEach(section => section.classList.remove('hidden'));
             }
+            mainContent.classList.remove('hidden');
         });
     }
 }
@@ -475,9 +530,9 @@ function addCommentToMedia(mediaId, commentText) {
     localStorage.setItem('mediaComments', JSON.stringify(allComments));
 }
 
-
 // Ensure the content loads and nav highlights when the DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     loadInitialContent();
     highlightActiveNav();
+
 });

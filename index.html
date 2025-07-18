@@ -4,10 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> Movies</title>
+    <title>My Movie Hub - Movies</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-
 </head>
 
 <body class="bg-gray-900 text-white">
@@ -19,8 +18,7 @@
                     <li><a href="index.html" class="hover:text-red-500 font-bold text-lg">Movies</a></li>
                     <li><a href="series.html" class="hover:text-red-500 font-bold text-lg">Series</a></li>
                     <li><a href="tvshows.html" class="hover:text-red-500 font-bold text-lg">TV Shows</a></li>
-                    <!-- <li><a href="genres.html" class="hover:text-red-500 font-bold text-lg">Genres</a></li> -->
-                </ul>
+                    </ul>
             </nav>
             <div class="relative">
                 <input type="text" id="search-input" placeholder="Search movies, TV shows..."
@@ -39,44 +37,46 @@
             style="background-image: url('https://image.tmdb.org/t/p/original/9gJg3wYvWqY6n6pP05s0c9Xq2m.jpg');">
             <div class="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center p-8">
                 <div>
-                    <h2 class="text-4xl font-bold mb-4 text-center">Featured Movie/Series Title</h2>
+                    <h2 class="text-4xl font-bold mb-4 text-center">Featured Movie Title</h2>
                     <p class="text-lg text-center max-w-2xl mx-auto">A brief description of the featured movie or
                         series. This will be dynamically loaded.</p>
                     <div class="text-center mt-6">
-                        <button
-                            class="bg-red-600 hover:bg-red-800 text-white font-bold py-3 px-6 rounded-full text-lg">Watch
+                        <button class="bg-red-600 hover:bg-red-800 text-white font-bold py-3 px-6 rounded-full text-lg watch-trailer-btn">Watch
                             Trailer</button>
                     </div>
                 </div>
             </div>
         </section>
 
-        <section class="mb-8">
-            <h2 class="text-3xl font-bold mb-6 text-center hover:text-red-500">Trending Now</h2>
+        <section class="mb-8" id="trending-movies-section">
+            <h2 class="text-3xl font-bold mb-6 text-center hover:text-red-500">Trending Movies This Week</h2>
             <div id="trending-movies-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-            </div>
+                </div>
         </section>
 
-        <section class="mb-8">
+        <section class="mb-8" id="popular-movies-section">
             <h2 class="text-3xl font-bold text-center hover:text-red-500">Popular Movies</h2>
             <div id="popular-movies-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-            </div>
+                </div>
         </section>
 
+        <section id="search-results-section" class="mb-8 hidden">
+            <h2 class="text-3xl font-bold mb-6 text-center">Search Results</h2>
+            <div id="search-results-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                </div>
+        </section>
     </main>
-    <section id="movie-detail-section"
-        class="fixed inset-0 bg-gray-900 bg-opacity-90 z-50 hidden flex justify-center items-center p-4">
-        <div
-            class="bg-gray-800 rounded-lg shadow-xl p-8 flex flex-col gap-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto relative custom-scrollbar">
-            <button id="close-detail-btn"
-                class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-3xl font-bold cursor-pointer">×</button>
-            <div id="detail-content" class="flex-grow">
+
+    <section id="movie-detail-section" class="fixed inset-0 bg-gray-900 bg-opacity-90 z-50 hidden flex justify-center items-center p-4">
+    <div class="bg-gray-800 rounded-lg shadow-xl p-8 flex flex-col gap-8 max-w-4xl w-full max-h-[90vh] relative">
+        <button id="close-detail-btn" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-3xl font-bold cursor-pointer">×</button>
+        <div id="detail-content" class="flex-grow overflow-hidden">
             </div>
-        </div>
-    </section>
+    </div>
+</section>
 
     <footer class="bg-gray-800 p-4 text-center text-gray-400">
-        <p>&copy; 2025 MyMovieHub. All rights reserved.</p>
+        <p>&copy; Copyright (c) 2025 VMaina2003</p>
     </footer>
 
     <script src="script.js"></script>
