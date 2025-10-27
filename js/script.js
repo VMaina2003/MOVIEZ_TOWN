@@ -1,8 +1,11 @@
 // TMDB API Configuration
-const API_KEY = "d2aac7456bf07db40918764f9a7bddf1";
-const BASE_URL = "https://api.themoviedb.org/3";
-const IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500";
-const ORIGINAL_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/original";
+
+import dotenv from 'dotenv';
+dotenv.config();
+const API_KEY = process.env.API_KEY;
+const BASE_URL = process.env.BASE_URL;
+const IMAGE_BASE_URL = process.env.IMAGE_BASE_URL;
+const ORIGINAL_IMAGE_BASE_URL= process.env.ORIGINAL_IMAGE_BASE_URL;
 
 // --- Function to fetch data from TMDb ---
 async function fetchMedia(endpoint, page = 1) {
@@ -72,8 +75,8 @@ function createMediaCard(media) {
             "movie");
 
     return `
-        <div class="bg-gray-800 rounded-lg shadow-md overflow-hidden transform hover:scale-105 transition-transform duration-300 cursor-pointer" data-id="${media.id}" data-type="${mediaType}">
-            <img src="${posterPath}" alt="${title}" class="w-full h-72 object-cover">
+        <div class="bg-gray-800 rounded-lg  sm:grid-cols-3  shadow-md overflow-hidden transform hover:scale-105 transition-transform duration-300 cursor-pointer" data-id="${media.id}" data-type="${mediaType} sm: grid-cols-3">
+            <img src="${posterPath}" alt="${title}" class="w-full h- object-cover">
             <div class="p-4">
                 <h3 class="text-lg font-semibold hover:text-red-500">${title}</h3>
                 <p class="text-sm text-gray-400 mt-2">Rating: ${voteAverage} / 10</p>
