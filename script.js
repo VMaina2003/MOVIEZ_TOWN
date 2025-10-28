@@ -1,19 +1,28 @@
 // TMDB API Configuration
+const API_KEY = 'd2aac7456bf07db40918764f9a7bddf1';
+const BASE_URL = 'https://api.themoviedb.org/3';
+const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
+const ORIGINAL_IMAGE_BASE_URL= 'https://image.tmdb.org/t/p/original';
 
-import dotenv from 'dotenv';
-dotenv.config();
-const API_KEY = process.env.API_KEY;
-const BASE_URL = process.env.BASE_URL;
-const IMAGE_BASE_URL = process.env.IMAGE_BASE_URL;
-const ORIGINAL_IMAGE_BASE_URL= process.env.ORIGINAL_IMAGE_BASE_URL;
 
 // --- Function to fetch data from TMDb ---
 async function fetchMedia(endpoint, page = 1) {
     try {
-        const response = await fetch(`${BASE_URL}${endpoint}?api_key=${API_KEY}&page=${page}`);
+        // Determine if the endpoint supports pagination
+        const supportsPagination = /trending|popular|top_rated|airing_today|on_the_air|search/.test(endpoint);
+
+        // Build the URL dynamically
+        const url = endpoint.includes('?')
+            ? `${BASE_URL}${endpoint}&api_key=${API_KEY}${supportsPagination ? `&page=${page}` : ''}`
+            : `${BASE_URL}${endpoint}?api_key=${API_KEY}${supportsPagination ? `&page=${page}` : ''}`;
+
+        console.log('Fetching:', url); // helpful for debugging
+
+        const response = await fetch(url);
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(`HTTP error! Endpoint: ${endpoint}, Status: ${response.status}`);
         }
+
         const data = await response.json();
         return data.results || data;
     } catch (error) {
@@ -21,6 +30,7 @@ async function fetchMedia(endpoint, page = 1) {
         return [];
     }
 }
+
 
 // Endless Scroll State Variables
 const pageTrackers = {
@@ -34,24 +44,21 @@ let currentPopularEndpoint = "";
 let currentTrendingGridId = "";
 let currentPopularGridId = "";
 let currentSearchQuery = "";
-
+let isSearching = false;
 
 
 // --- Highlight Active Navigation Link ---
 function highlightActiveNav() {
     const navLinks = document.querySelectorAll("nav ul li a");
-    const currentPath = window.location.pathname.split("/").pop();
+    const currentPath = window.location.pathname.split("/").pop() || "index.html";
 
     navLinks.forEach((link) => {
         link.classList.remove("text-red-500", "border-b-2", "border-red-500");
         link.classList.add("hover:text-red-500");
 
-        const linkPath = link.href.split("/").pop();
+        const linkPath = link.href.split("/").pop() || "index.html";
 
-        if (
-            currentPath === linkPath ||
-            (currentPath === "" && linkPath === "index.html")
-        ) {
+        if (currentPath === linkPath) {
             link.classList.add("text-red-500", "border-b-2", "border-red-500");
             link.classList.remove("hover:text-red-500");
         }
@@ -60,25 +67,21 @@ function highlightActiveNav() {
 
 // --- Function to create a movie/TV show card HTML ---
 function createMediaCard(media) {
-    const posterPath = media.poster_path ?
-        `${IMAGE_BASE_URL}${media.poster_path}` :
-        "https://via.placeholder.com/200x300?text=No+Image";
+    if (!media.poster_path) return ''; 
+
     const title = media.title || media.name;
-    const voteAverage = media.vote_average ?
-        media.vote_average.toFixed(1) :
-        "N/A";
-    const mediaType =
-        media.media_type ||
-        (window.location.pathname.includes("series.html") ||
-            window.location.pathname.includes("tvshows.html") ?
-            "tv" :
-            "movie");
+    const mediaType = media.media_type || (media.title ? "movie" : "tv");
+    
+    if (mediaType === 'person') return '';
+
+    const posterPath = `${IMAGE_BASE_URL}${media.poster_path}`;
+    const voteAverage = media.vote_average ? media.vote_average.toFixed(1) : "N/A";
 
     return `
-        <div class="bg-gray-800 rounded-lg  sm:grid-cols-3  shadow-md overflow-hidden transform hover:scale-105 transition-transform duration-300 cursor-pointer" data-id="${media.id}" data-type="${mediaType} sm: grid-cols-3">
-            <img src="${posterPath}" alt="${title}" class="w-full h- object-cover">
+        <div class="bg-gray-800 rounded-lg shadow-md overflow-hidden transform hover:scale-105 transition-transform duration-300 cursor-pointer" data-id="${media.id}" data-type="${mediaType}">
+            <img src="${posterPath}" alt="${title}" class="w-full h-auto object-cover">
             <div class="p-4">
-                <h3 class="text-lg font-semibold hover:text-red-500">${title}</h3>
+                <h3 class="text-lg font-semibold hover:text-red-500 truncate">${title}</h3>
                 <p class="text-sm text-gray-400 mt-2">Rating: ${voteAverage} / 10</p>
             </div>
         </div>
@@ -89,12 +92,13 @@ function createMediaCard(media) {
 function displayMedia(mediaItems, containerId, append = false) {
     const container = document.getElementById(containerId);
     if (container) {
+        let cardsHtml = mediaItems.map(createMediaCard).join('');
+        
         if (!append) {
-            container.innerHTML = "";
+            container.innerHTML = cardsHtml;
+        } else {
+            container.innerHTML += cardsHtml;
         }
-        mediaItems.forEach((item) => {
-            container.innerHTML += createMediaCard(item);
-        });
     }
 }
 
@@ -120,12 +124,8 @@ function incrementPage(endpoint) {
     else if (endpoint.includes("/search/multi")) pageTrackers.search++;
 }
 
-// --- Main function to load initial content based on the current page ---
-async function loadInitialContent() {
-    const path = window.location.pathname;
-    let mediaType = "movie";
-    let heroEndpoint = "";
-
+// --- Function to reset all page trackers ---
+function resetPageTrackers() {
     Object.keys(pageTrackers).forEach(key => {
         if (typeof pageTrackers[key] === 'object') {
             Object.keys(pageTrackers[key]).forEach(subKey => {
@@ -135,23 +135,29 @@ async function loadInitialContent() {
             pageTrackers[key] = 1;
         }
     });
+}
 
-    // Determine content based on the current page and manage section visibility
-    // Get all relevant content sections
+// --- Main function to load initial content based on the current page ---
+async function loadInitialContent() {
+    resetPageTrackers();
+    
+    const path = window.location.pathname;
+    let mediaType = "movie";
+    let heroEndpoint = "";
+
     const allContentSections = [
         document.getElementById('trending-movies-section'),
         document.getElementById('popular-movies-section'),
         document.getElementById('trending-tv-section'),
         document.getElementById('popular-tv-section'),
-        document.getElementById('airing-today-tv-section') // Specific to tvshows.html
+        document.getElementById('airing-today-tv-section')
     ];
-
-    // Hide all of them first
     allContentSections.forEach(section => section && section.classList.add('hidden'));
 
+    if (isSearching) return; 
 
+    // Determine content based on the current page
     if (path.includes('index.html') || path === "/") {
-        mediaType = "movie";
         currentTrendingEndpoint = "/trending/movie/week";
         currentPopularEndpoint = "/movie/popular";
         heroEndpoint = "/movie/now_playing";
@@ -163,7 +169,6 @@ async function loadInitialContent() {
         document.getElementById('popular-movies-section')?.classList.remove('hidden');
 
     } else if (path.includes("series.html")) {
-        mediaType = "tv";
         currentTrendingEndpoint = "/trending/tv/week";
         currentPopularEndpoint = "/tv/popular";
         heroEndpoint = "/tv/top_rated";
@@ -175,7 +180,6 @@ async function loadInitialContent() {
         document.getElementById('popular-tv-section')?.classList.remove('hidden');
 
     } else if (path.includes("tvshows.html")) {
-        mediaType = "tv";
         currentTrendingEndpoint = "/tv/airing_today";
         currentPopularEndpoint = "/tv/on_the_air";
         heroEndpoint = "/tv/popular";
@@ -187,17 +191,20 @@ async function loadInitialContent() {
         document.getElementById('popular-tv-section')?.classList.remove('hidden');
     }
 
-    const trendingMedia = await fetchMedia(currentTrendingEndpoint, getCurrentPage(currentTrendingEndpoint));
+    // Load and display initial content (Page 1)
+    const trendingMedia = await fetchMedia(currentTrendingEndpoint, 1);
     displayMedia(trendingMedia, currentTrendingGridId);
 
-    const popularMedia = await fetchMedia(currentPopularEndpoint, getCurrentPage(currentPopularEndpoint));
+    const popularMedia = await fetchMedia(currentPopularEndpoint, 1);
     displayMedia(popularMedia, currentPopularGridId);
 
+    // Load and set up the hero section
     const heroSection = document.getElementById("hero-section");
     if (heroSection) {
         const heroData = await fetchMedia(heroEndpoint);
         if (heroData.length > 0) {
             const heroItem = heroData[0];
+            mediaType = heroItem.media_type || (heroItem.title ? "movie" : "tv");
             heroSection.style.backgroundImage = `url(${ORIGINAL_IMAGE_BASE_URL}${heroItem.backdrop_path})`;
             heroSection.querySelector("h2").textContent = heroItem.title || heroItem.name;
             heroSection.querySelector("p").textContent = heroItem.overview ?
@@ -212,15 +219,17 @@ async function loadInitialContent() {
 
 // --- Endless Scroll Event Listener ---
 window.addEventListener("scroll", async () => {
-    if (isLoading || currentSearchQuery) return;
+    if (isLoading || isSearching) return; 
 
     if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500) {
         isLoading = true;
 
+        // Load more Trending/Airing Today
         incrementPage(currentTrendingEndpoint);
         const moreTrending = await fetchMedia(currentTrendingEndpoint, getCurrentPage(currentTrendingEndpoint));
         displayMedia(moreTrending, currentTrendingGridId, true);
 
+        // Load more Popular/On The Air
         incrementPage(currentPopularEndpoint);
         const morePopular = await fetchMedia(currentPopularEndpoint, getCurrentPage(currentPopularEndpoint));
         displayMedia(morePopular, currentPopularGridId, true);
@@ -229,73 +238,73 @@ window.addEventListener("scroll", async () => {
     }
 });
 
+
 /// --- Search Functionality ---
 const searchInput = document.getElementById('search-input');
 let searchTimeout;
 
-searchInput.addEventListener('input', async (e) => {
-    clearTimeout(searchTimeout);
-    const query = e.target.valuegit();
-    currentSearchQuery = query;
+if (searchInput) {
+    searchInput.addEventListener('input', async (e) => {
+        clearTimeout(searchTimeout);
+        const query = e.target.value.trim();
+        currentSearchQuery = query;
 
-    const mainContentSections = document.querySelectorAll('main section:not(#search-results-section)');
-    let searchResultsSection = document.getElementById('search-results-section');
-    const main = document.querySelector('main');
+        const mainContentSections = document.querySelectorAll('main section:not(#search-results-section)');
+        let searchResultsSection = document.getElementById('search-results-section');
+        const main = document.querySelector('main');
+        
+        // 1. Handle search activation
+        if (query.length > 2) {
+            isSearching = true;
+            searchTimeout = setTimeout(async () => {
+                
+                const searchResults = await fetchMedia(`/search/multi?query=${encodeURIComponent(query)}`, pageTrackers.search);
 
-    if (query.length > 2) {
-        searchTimeout = setTimeout(async () => {
-            const searchResults = await fetchMedia(`https://api.themoviedb.org/3/search/keyword/api_key=${API_KEY}&query=${encodeURIComponent(query)}`);
-
-            // Ensure searchResultsSection exists and is visible
-            if (!searchResultsSection) {
-                searchResultsSection = document.createElement('section');
-                searchResultsSection.id = 'search-results-section';
-                searchResultsSection.classList.add('mb-8', 'container', 'mx-auto', 'py-8');
-                if (main) {
-                    // Prepend it to main, or adjust as per your desired layout
-                    const firstMainChild = main.firstElementChild;
-                    if (firstMainChild) {
-                        main.insertBefore(searchResultsSection, firstMainChild);
-                    } else {
-                        main.appendChild(searchResultsSection);
-                    }
+                // Initialize search section structure if it doesn't exist
+                if (!searchResultsSection) {
+                    searchResultsSection = document.createElement('section');
+                    searchResultsSection.id = 'search-results-section';
+                    searchResultsSection.classList.add('mb-8', 'container', 'mx-auto', 'py-8');
+                    main.prepend(searchResultsSection);
                 }
-            }
-            searchResultsSection.classList.remove('hidden');
+                searchResultsSection.classList.remove('hidden');
 
-            // Add the search title and grid container directly to the searchResultsSection
-            // ONLY if they don't already exist or if you need to clear old results
-            let searchResultsGrid = document.getElementById('search-results-grid');
-            if (!searchResultsGrid) {
+                // Update section content
                 searchResultsSection.innerHTML = `
                     <h2 class="text-3xl font-bold mb-6 text-center">Search Results for "${query}"</h2>
                     <div id="search-results-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                     </div>
                 `;
-                searchResultsGrid = document.getElementById('search-results-grid'); // Get reference after creation
-            } else {
-                // Update title and clear grid for new search
-                searchResultsSection.querySelector('h2').textContent = `Search Results for "${query}"`;
-                searchResultsGrid.innerHTML = ''; // Clear previous results
+                
+                // Hide main content sections
+                mainContentSections.forEach(section => section.classList.add('hidden'));
+
+                // Display results
+                displayMedia(searchResults, 'search-results-grid');
+
+                pageTrackers.search = 1;
+
+            }, 500);
+        } 
+        // 2. Handle search deactivation
+        else if (query.length === 0 && isSearching) {
+            clearTimeout(searchTimeout);
+            isSearching = false;
+            
+            if (searchResultsSection) {
+                searchResultsSection.classList.add('hidden');
+                searchResultsSection.innerHTML = '';
             }
-
-            mainContentSections.forEach(section => section.classList.add('hidden'));
-
-            // Now display media into the correctly referenced grid
-            displayMedia(searchResults, 'search-results-grid');
-
-        }, 500);
-    } else if (query.length === 0) {
-        if (searchResultsSection) {
-            searchResultsSection.classList.add('hidden');
-            searchResultsSection.innerHTML = '';
+            
+            // Restore main content and reload
+            mainContentSections.forEach(section => section.classList.remove('hidden'));
+            loadInitialContent();
         }
-        mainContentSections.forEach(section => section.classList.remove('hidden'));
-        loadInitialContent();
-    }
-});
+    });
+}
 
-// --- Media Details & Comments ---
+
+// --- Media Details & Comments Event Listeners ---
 document.addEventListener('click', async (event) => {
     const mediaCard = event.target.closest('[data-id][data-type]');
     const watchTrailerButton = event.target.closest('#hero-section .watch-trailer-btn');
@@ -319,11 +328,11 @@ document.addEventListener('click', async (event) => {
     }
 });
 
+// --- Media Details Modal Function (with Robust Trailer Logic) ---
 async function showMediaDetails(id, type) {
     const detailSection = document.getElementById('movie-detail-section');
-    const mainContent = document.querySelector('main');
     const searchResultsSection = document.getElementById('search-results-section');
-
+    
     if (!detailSection) {
         console.error("Movie detail section not found. Please add <section id='movie-detail-section'> to your HTML.");
         return;
@@ -331,26 +340,45 @@ async function showMediaDetails(id, type) {
 
     const detailContentContainer = detailSection.querySelector('#detail-content');
 
-    // Hide main content and search results section
-    mainContent.classList.add('hidden');
-    if (searchResultsSection) searchResultsSection.classList.add('hidden');
-    detailSection.classList.remove('hidden'); // Show the modal overlay
+    // Show Loading State & Hide Main Content
+    document.querySelectorAll('main section').forEach(section => section.classList.add('hidden'));
 
-    // Set initial loading state and center it
+    detailSection.classList.remove('hidden');
+
+    // Set initial loading state styles
+    detailContentContainer.classList.add('flex', 'justify-center', 'items-center', 'h-full', 'p-8');
+    detailContentContainer.classList.remove('overflow-y-auto', 'custom-scrollbar');
     detailContentContainer.innerHTML = `
-        <p class="text-center text-lg text-red-500">Loading details...</p>
-        <div class="flex justify-center items-center mt-4">
-            <div class=" rounded-full h-12 w-12 border-b-2 border-red-500"></div>
+        <div class="text-center">
+            <p class="text-lg text-red-500 mb-4">Loading details...</p>
+            <div class="w-12 h-12 border-4 border-t-4 border-red-500 border-opacity-25 rounded-full animate-spin"></div>
         </div>
     `;
-    // These classes are for centering the loading message within the flex-grow container
-    detailContentContainer.classList.add('flex', 'justify-center', 'items-center', 'h-full');
-
 
     try {
         const mediaDetails = await fetchMedia(`/${type}/${id}`);
-        const videosData = await fetch(`${BASE_URL}/${type}/${id}/videos?api_key=${API_KEY}&language=en-US`);
-        const videos = await videosData.json();
+        const videos = await fetchMedia(`/${type}/${id}/videos`);
+
+        // --- ROBUST TRAILER SEARCH LOGIC (FIXED) ---
+        let trailer = null;
+        if (videos.results) {
+            // 1. Search for a YouTube video of type 'Trailer' first.
+            trailer = videos.results.find(video => video.type === 'Trailer' && video.site === 'YouTube');
+
+            // 2. If no 'Trailer' is found, try finding a reliable 'Teaser' or 'Clip'.
+            if (!trailer) {
+                trailer = videos.results.find(video => 
+                    (video.type === 'Teaser' || video.type === 'Clip') && video.site === 'YouTube'
+                );
+            }
+            
+            // 3. If still nothing, just grab the first YouTube video available.
+            if (!trailer && videos.results.length > 0) {
+                trailer = videos.results.find(video => video.site === 'YouTube');
+            }
+        }
+        const trailerEmbedUrl = trailer ? `https://www.youtube.com/embed/${trailer.key}` : '';
+        // --- END ROBUST TRAILER SEARCH LOGIC ---
 
         let seasonsHtml = '';
         if (type === 'tv' && mediaDetails.seasons && mediaDetails.seasons.length > 0) {
@@ -359,15 +387,24 @@ async function showMediaDetails(id, type) {
                 <div class="flex flex-col gap-4">
             `;
             mediaDetails.seasons.forEach(season => {
-                if (season.season_number === 0 && season.episode_count === 0) return;
+                if (season.season_number === 0 && season.episode_count === 0) return; 
+
+                const seasonPoster = season.poster_path ? `${IMAGE_BASE_URL}${season.poster_path}` : 'https://via.placeholder.com/100x150?text=No+Poster';
 
                 seasonsHtml += `
-                    <div class="bg-gray-700 p-4 rounded-lg shadow-md cursor-pointer toggle-season" data-season-id="${season.id}" data-season-number="${season.season_number}" data-tv-id="${id}" >
+                    <div class="bg-gray-700 p-4 rounded-lg shadow-md cursor-pointer toggle-season" 
+                         data-season-number="${season.season_number}" data-tv-id="${id}">
                         <div class="flex items-center justify-between">
-                            <h4 class="text-xl font-semibold">${season.name} (${season.episode_count || 'N/A'} Episodes)</h4>
-                            <span class="text-xl">+</span>
+                             <div class="flex items-center gap-4">
+                                <img src="${seasonPoster}" alt="${season.name}" class="w-16 h-24 object-cover rounded-md flex-shrink-0">
+                                <div>
+                                    <h4 class="text-xl font-semibold">${season.name} (${season.episode_count || 'N/A'} Episodes)</h4>
+                                    <p class="text-sm text-gray-400">${season.air_date ? new Date(season.air_date).getFullYear() : 'N/A'}</p>
+                                </div>
+                             </div>
+                            <span class="text-2xl font-bold toggle-icon">+</span>
                         </div>
-                        <div class="season-episodes hidden mt-4 pl-4 border-l border-gray-600">
+                        <div class="season-episodes hidden mt-4 pl-4 border-l border-gray-600 text-sm">
                             <p class="text-gray-400">Click to load episodes...</p>
                         </div>
                     </div>
@@ -377,15 +414,13 @@ async function showMediaDetails(id, type) {
         }
 
         const comments = getCommentsForMedia(id);
-        const trailer = videos.results ? videos.results.find(video => video.type === 'Trailer' && video.site === 'YouTube') : null;
-        // Correct YouTube embed URL: Note the corrected domain and template literal syntax
-        const trailerEmbedUrl = trailer ? `https://www.youtube.com/embed/${trailer.key}` : '';
 
+        // --- Generate Detail Content HTML ---
         const detailContentHtml = `
             <div class="flex flex-col md:flex-row gap-8 items-start mb-8">
                 <img src="${mediaDetails.poster_path ? `${IMAGE_BASE_URL}${mediaDetails.poster_path}` : "https://via.placeholder.com/200x300?text=No+Image"}"
                      alt="${mediaDetails.title || mediaDetails.name}"
-                     class="w-full md:w-64 h-auto md:h-96 object-cover rounded-lg shadow-lg flex-shrink-0">
+                     class="w-full md:w-64 h-auto object-cover rounded-lg shadow-lg flex-shrink-0">
                 <div class="flex-grow">
                     <h2 class="text-4xl font-bold mb-4">${mediaDetails.title || mediaDetails.name}</h2>
                     <p class="text-gray-300 text-lg mb-4">${mediaDetails.overview || 'No overview available.'}</p>
@@ -394,17 +429,25 @@ async function showMediaDetails(id, type) {
                     <p class="text-md text-gray-400 mb-4"><strong>Genres:</strong> ${mediaDetails.genres ? mediaDetails.genres.map(g => g.name).join(', ') : 'N/A'}</p>
                     ${type === 'tv' ? `<p class="text-md text-gray-400 mb-4"><strong>Number of Seasons:</strong> ${mediaDetails.number_of_seasons || 'N/A'}</p>` : ''}
 
-                    ${trailerEmbedUrl ? `
-                        <h3 class="text-2xl font-bold mt-6 mb-4">Trailer</h3>
-                        <div class="relative" style="padding-bottom: 56.25%; height: 0; overflow: hidden;">
-                            <iframe class="absolute top-0 left-0 w-full h-full rounded-lg"
-                                    src="${trailerEmbedUrl}"
-                                    frameborder="0"
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowfullscreen>
-                            </iframe>
-                        </div>
-                    ` : '<p class="text-gray-500 mt-6">No trailer available.</p>'}
+                   ${trailer ? `
+    <h3 class="text-2xl font-bold mt-6 mb-4">Trailer</h3>
+    <a href="https://www.youtube.com/watch?v=${trailer.key}" 
+       target="_blank" 
+       rel="noopener noreferrer"
+       class="inline-flex items-center bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md transition">
+        Watch Trailer on YouTube
+    </a>
+` : `
+    <p class="text-gray-500 mt-6">
+        No trailer available on TMDb.
+        <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(mediaDetails.title || mediaDetails.name + ' trailer')}"
+           target="_blank"
+           class="text-red-500 underline ml-1">
+           Search on YouTube
+        </a>
+    </p>
+`}
+
                 </div>
             </div>
 
@@ -415,36 +458,37 @@ async function showMediaDetails(id, type) {
                 ${comments.length > 0 ? comments.map(comment => `<p class="bg-gray-700 p-3 rounded-md mb-2">${comment}</p>`).join('') : '<p class="text-gray-500">No comments yet. Be the first to comment!</p>'}
             </div>
             <textarea id="comment-input" class="w-full bg-gray-700 text-white rounded-md p-3 mb-2 focus:outline-none focus:ring-2 focus:ring-red-500" rows="3" placeholder="Add a comment..."></textarea>
-            <button id="add-comment-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md">Add Comment</button>
+            <button id="add-comment-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md">Add Comment</button>
         `;
 
-        // Clear initial loading state classes
-        detailContentContainer.classList.remove('flex', 'justify-center', 'items-center', 'h-full', 'overflow-hidden');
-
-        // Populate and add scroll classes
+        // Apply Correct Display Styles and Content
+        detailContentContainer.classList.remove('flex', 'justify-center', 'items-center', 'h-full');
+        detailContentContainer.classList.add('overflow-y-auto', 'custom-scrollbar');
         detailContentContainer.innerHTML = detailContentHtml;
-        detailContentContainer.classList.add('overflow-y-auto', 'custom-scrollbar', 'p-8');
-        // Setting flex-grow: 1 ensures it fills available vertical space, and combined with overflow-y-auto, enables scrolling.
-        detailContentContainer.style.flex = '1';
 
-
-        // Attach event listeners for season toggles (only if it's a TV show)
+        // --- Attach Dynamic Event Listeners ---
+        
+        // 1. Season Toggles (Only for TV)
         if (type === 'tv') {
             document.querySelectorAll('.toggle-season').forEach(seasonDiv => {
                 seasonDiv.addEventListener('click', async (e) => {
+                    if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') return;
+                    
                     const targetDiv = e.currentTarget;
                     const episodesContainer = targetDiv.querySelector('.season-episodes');
                     const seasonNumber = targetDiv.dataset.seasonNumber;
                     const tvId = targetDiv.dataset.tvId;
-                    const toggleIcon = targetDiv.querySelector('span');
+                    const toggleIcon = targetDiv.querySelector('.toggle-icon');
 
                     if (episodesContainer.classList.contains('hidden')) {
+                        // Load episodes only once
                         if (!episodesContainer.dataset.loaded) {
-                            episodesContainer.innerHTML = `<p class="text-gray-400">Loading episodes...</p>`;
+                            episodesContainer.innerHTML = `<p class="text-red-500">Loading episodes...</p>`;
                             const episodesData = await fetchMedia(`/${type}/${tvId}/season/${seasonNumber}`);
+                            
                             if (episodesData && episodesData.episodes && episodesData.episodes.length > 0) {
                                 episodesContainer.innerHTML = episodesData.episodes.map(episode => `
-                                    <div class="flex items-start gap-2 mb-2 p-2 bg-gray-600 rounded-md">
+                                    <div class="flex items-start gap-2 mb-3 p-3 bg-gray-600 rounded-md">
                                         <img src="${episode.still_path ? `${IMAGE_BASE_URL}${episode.still_path}` : 'https://via.placeholder.com/150x84?text=No+Image'}"
                                              alt="Episode Still"
                                              class="w-24 h-auto rounded-md flex-shrink-0">
@@ -460,8 +504,9 @@ async function showMediaDetails(id, type) {
                                 episodesContainer.innerHTML = `<p class="text-gray-400">No episodes found for this season.</p>`;
                             }
                         }
+                        
                         episodesContainer.classList.remove('hidden');
-                        toggleIcon.textContent = '-';
+                        toggleIcon.textContent = '−';
                     } else {
                         episodesContainer.classList.add('hidden');
                         toggleIcon.textContent = '+';
@@ -469,58 +514,44 @@ async function showMediaDetails(id, type) {
                 });
             });
         }
-
-        // Attach event listeners for close button and add comment button
+        
+        // 2. Close Button
         document.getElementById('close-detail-btn').addEventListener('click', () => {
             detailSection.classList.add('hidden');
-
-            // Remove scroll and flex classes from detailContentContainer when closing
-            detailContentContainer.classList.remove('overflow-y-auto', 'custom-scrollbar', 'p-8');
-            detailContentContainer.classList.add('overflow-hidden'); // Restore initial hidden overflow
-            detailContentContainer.style.flex = ''; // Remove explicit flex style
-
-            if (searchResultsSection && !searchResultsSection.classList.contains('hidden')) {
+            detailContentContainer.classList.remove('overflow-y-auto', 'custom-scrollbar');
+            
+            if (isSearching && searchResultsSection) {
                 searchResultsSection.classList.remove('hidden');
             } else {
-                document.querySelectorAll('main section:not(#search-results-section)').forEach(section => section.classList.remove('hidden'));
+                document.querySelectorAll('main section').forEach(section => section.classList.remove('hidden'));
+                loadInitialContent();
             }
-            mainContent.classList.remove('hidden');
         });
-
+        
+        // 3. Add Comment Button
         document.getElementById('add-comment-btn').addEventListener('click', () => {
             const commentInput = document.getElementById('comment-input');
             const commentText = commentInput.value.trim();
             if (commentText) {
                 addCommentToMedia(id, commentText);
                 commentInput.value = '';
-                showMediaDetails(id, type); // Reload details to show the new comment
+                showMediaDetails(id, type); 
             }
         });
 
     } catch (error) {
         console.error("Error fetching media details:", error);
-        detailContentContainer.innerHTML = `
-            <p class="text-center text-red-500">Failed to load media details.</p>
-        `;
-        // Ensure close button works even on error
+        detailContentContainer.classList.remove('flex', 'justify-center', 'items-center', 'h-full');
+        detailContentContainer.innerHTML = `<p class="text-center text-red-500">Failed to load media details.</p>`;
+        
         document.getElementById('close-detail-btn').addEventListener('click', () => {
-            detailSection.classList.add('hidden');
-
-            detailContentContainer.classList.remove('overflow-y-auto', 'custom-scrollbar', 'p-8');
-            detailContentContainer.classList.add('overflow-hidden');
-            detailContentContainer.style.flex = '';
-
-            if (searchResultsSection && !searchResultsSection.classList.contains('hidden')) {
-                searchResultsSection.classList.remove('hidden');
-            } else {
-                document.querySelectorAll('main section:not(#search-results-section)').forEach(section => section.classList.remove('hidden'));
-            }
-            mainContent.classList.remove('hidden');
+             detailSection.classList.add('hidden');
+             loadInitialContent();
         });
     }
 }
 
-// --- Comments using Local Storage ---
+// --- Comments using Local Storage (Crucial missing functions) ---
 function getCommentsForMedia(mediaId) {
     const allComments = JSON.parse(localStorage.getItem('mediaComments')) || {};
     return allComments[mediaId] || [];
@@ -537,7 +568,9 @@ function addCommentToMedia(mediaId, commentText) {
 
 // Ensure the content loads and nav highlights when the DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    loadInitialContent();
-    highlightActiveNav();
-
+    // Only execute browser-specific functions when window object is defined
+    if (typeof window !== 'undefined') {
+        loadInitialContent();
+        highlightActiveNav();
+    }
 });
